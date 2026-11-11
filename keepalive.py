@@ -214,6 +214,8 @@ def main() -> int:
     ap = argparse.ArgumentParser(description="box 云容器保活")
     ap.add_argument("--once", action="store_true", help="只跑一轮")
     ap.add_argument("--loop", action="store_true", help="常驻循环（默认）")
+    ap.add_argument("--max-minutes", type=float, default=0.0,
+                    help="循环最多跑多少分钟后正常退出，0=不限（CI 里给 job 一个上限）")
     ap.add_argument("-v", "--verbose", action="store_true")
     args = ap.parse_args()
 
@@ -227,7 +229,10 @@ def main() -> int:
     if args.once:
         return 0 if tick(box, cfg, log) else 1
 
-    log.info("保活启动，间隔 %ds，box=%s", interval, cfg.get("box") or "default")
+    log.info("保活启动，间隔 %ds，box=%s，上限 %s",
+             interval, cfg.get("box") or "default",
+             f"{args.max_minutes:g} 分钟" if args.max_minutes else "无")
+    deadline = time.monotonic() + args.max_minutes * 60 if args.max_minutes else None
     fails = 0
     while True:
         try:
@@ -237,6 +242,10 @@ def main() -> int:
             fails += 1
             log.exception("本轮异常（连续 %d 次）：%s", fails, e)
 
+        if deadline is not None and time.monotonic() >= deadline:
+            log.info("到达 --max-minutes 上限，正常退出（由下一个 job 接续）")
+            return 0
+
         # 连续失败就转入快速重试，成功一次自动回到常规节奏
         wait = 60 if 0 < fails < 5 else (300 if fails else interval)
         # 睡眠切片，便于将来加信号
@@ -244,6 +253,9 @@ def main() -> int:
         while slept < wait:
             time.sleep(min(30, wait - slept))
             slept += 30
+            if deadline is not None and time.monotonic() >= deadline:
+                log.info("到达 --max-minutes 上限，正常退出（由下一个 job 接续）")
+                return 0
 
 
 if __name__ == "__main__":

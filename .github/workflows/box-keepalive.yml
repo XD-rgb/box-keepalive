@@ -1,23 +1,36 @@
 name: box-keepalive
 
-# 不依赖本机：GitHub cron 每 5 分钟戳一次 box，让容器永不休眠。
-# 前置：仓库 Settings -> Secrets and variables -> Actions -> New repository secret
+# 不依赖本机：GitHub 上常驻一个 job，每 240s 戳一次 box，让容器永不休眠。
+#
+# 为什么不是 */5 的短平快 cron：GitHub 的 schedule 只保证「大约」，高负载时会
+# 延迟十几分钟、极端情况下直接丢弃，而 box 的 idle 阈值官方没公开。靠 cron 打点
+# 等于赌运气。这里改成「一个长期跑着循环的 job」：job 内部自己每 240s 打一次，
+# 定时器只负责每小时把 job 换新一次（cancel-in-progress），所以：
+#   - 打点节奏由 job 内部保证，不受 cron 抖动影响
+#   - job 万一挂掉，最迟 1 小时后被下一个顶掉
+#   - 任何时刻最多只有 1 个 job 在跑
+#
+# 前置：Settings -> Secrets and variables -> Actions -> New repository secret
 #       Name: BOX_TOKEN   Value: cb_xxxxxxxx
-# 私有仓库免费额度 2000 分钟/月；每次约 20 秒，288 次/天 ≈ 100 分钟/月。
+# 计费：公开仓库的 standard runner 不计分钟数，24/7 常驻不受 2000 分钟额度限制。
+#       （私有仓库常驻会吃满额度，那种情况见 README 的「私有仓模式」）
 
 on:
   schedule:
-    - cron: "*/5 * * * *"
+    - cron: "0 * * * *"
   workflow_dispatch:
+
+permissions:
+  contents: read
 
 concurrency:
   group: box-keepalive
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 jobs:
-  ping:
+  keepalive:
     runs-on: ubuntu-latest
-    timeout-minutes: 4
+    timeout-minutes: 70
     steps:
       - uses: actions/checkout@v4
 
@@ -25,8 +38,15 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Wake if asleep, then heartbeat
+      - name: 冒烟一轮（失败就立刻红，不拖到循环里）
         env:
           BOX_TOKEN: ${{ secrets.BOX_TOKEN }}
           BOX_KEEPALIVE_CONFIG: config.ci.json
         run: python keepalive.py --once -v
+
+      - name: 持续心跳（240s 一次，直到下一个 job 接替）
+        env:
+          BOX_TOKEN: ${{ secrets.BOX_TOKEN }}
+          BOX_KEEPALIVE_CONFIG: config.ci.json
+          PYTHONUNBUFFERED: "1"
+        run: python keepalive.py --loop --max-minutes 65 -v
