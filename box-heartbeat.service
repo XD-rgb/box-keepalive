@@ -1,0 +1,10 @@
+[Unit]
+Description=box heartbeat (writes /workspace/keepalive/box-heartbeat.log)
+After=multi-user.target
+
+[Service]
+Type=oneshot
+User=user
+Group=user
+ExecStart=/usr/local/bin/box-heartbeat.sh
+Nice=10

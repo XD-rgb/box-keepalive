@@ -1,0 +1,11 @@
+[Unit]
+Description=Run box-heartbeat every 2 minutes
+
+[Timer]
+OnBootSec=60
+OnUnitActiveSec=120
+AccuracySec=10
+Unit=box-heartbeat.service
+
+[Install]
+WantedBy=timers.target

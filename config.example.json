@@ -1,0 +1,9 @@
+{
+  "endpoint": "https://mcp.box.simular.ai/mcp",
+  "token": "把 box 个人密钥填在这里：cb_xxxxxxxx",
+  "box": "",
+  "interval_seconds": 240,
+  "retention_days": 7,
+  "log_dir": "logs",
+  "_comment": "也可以不填 token，改用环境变量 BOX_TOKEN；环境变量优先。"
+}

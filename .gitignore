@@ -1,0 +1,11 @@
+# 本地配置，含密钥，永不入库
+config.json
+logs/
+*.log
+install.log
+payload.json
+p.json
+__pycache__/
+*.pyc
+.DS_Store
+Thumbs.db

@@ -1,0 +1,32 @@
+name: box-keepalive
+
+# 不依赖本机：GitHub cron 每 5 分钟戳一次 box，让容器永不休眠。
+# 前置：仓库 Settings -> Secrets and variables -> Actions -> New repository secret
+#       Name: BOX_TOKEN   Value: cb_xxxxxxxx
+# 私有仓库免费额度 2000 分钟/月；每次约 20 秒，288 次/天 ≈ 100 分钟/月。
+
+on:
+  schedule:
+    - cron: "*/5 * * * *"
+  workflow_dispatch:
+
+concurrency:
+  group: box-keepalive
+  cancel-in-progress: false
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    timeout-minutes: 4
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Wake if asleep, then heartbeat
+        env:
+          BOX_TOKEN: ${{ secrets.BOX_TOKEN }}
+          BOX_KEEPALIVE_CONFIG: config.ci.json
+        run: python keepalive.py --once -v

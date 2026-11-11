@@ -1,0 +1,9 @@
+{
+  "endpoint": "https://mcp.box.simular.ai/mcp",
+  "token": "",
+  "box": "",
+  "interval_seconds": 240,
+  "retention_days": 3,
+  "log_dir": "logs",
+  "_comment": "CI 专用副本：token 留空，由 BOX_TOKEN 环境变量注入（GitHub Actions secret）。不要把这个文件填上真实密钥后提交。"
+}
